@@ -49,16 +49,18 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: AI/Machine Learning, Developer Tools, Integration & Delivery
-    containerImage: quay.io/takinosh/jupyter-notebook-validator-operator:1.0.2-ocp4.18
-    createdAt: "2025-11-26T22:00:00Z"
+    containerImage: quay.io/takinosh/jupyter-notebook-validator-operator:1.0.9-ocp4.20
+    createdAt: "2025-12-04T03:25:36Z"
     description: Kubernetes operator for validating Jupyter notebooks in MLOps workflows
     operators.operatorframework.io/builder: operator-sdk-v1.37.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/tosin2013/jupyter-notebook-validator-operator
     support: Community
-  name: jupyter-notebook-validator-operator.v1.0.2
+    com.redhat.openshift.versions: "v4.20"
+  name: jupyter-notebook-validator-operator.v1.0.9
   namespace: placeholder
 spec:
+  replaces: jupyter-notebook-validator-operator.v1.0.8
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
@@ -86,7 +88,7 @@ spec:
 
     * Kubernetes 1.28+
     * OpenShift 4.18 - 4.20
-    * Tekton Pipelines v0.65+ (optional, for build integration)
+    * Tekton Pipelines v0.68+ (OpenShift Pipelines 1.20+)
 
     ### Getting Started
 
@@ -364,11 +366,12 @@ spec:
                 command:
                 - /manager
                 env:
-                - name: PLATFORM
-                  value: kubernetes
                 - name: ENABLE_WEBHOOKS
-                  value: "false"
-                image: quay.io/takinosh/jupyter-notebook-validator-operator:1.0.2-ocp4.18
+                  value: "true"
+                - name: PLATFORM
+                  value: openshift
+                - name: GIT_INIT_IMAGE
+                image: quay.io/takinosh/jupyter-notebook-validator-operator:1.0.9-ocp4.20
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -377,6 +380,10 @@ spec:
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
                 readinessProbe:
                   failureThreshold: 3
                   httpGet:
@@ -396,7 +403,10 @@ spec:
                   capabilities:
                     drop:
                     - ALL
-                volumeMounts: []
+                volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: cert
+                  readOnly: true
               - args:
                 - --secure-listen-address=0.0.0.0:8443
                 - --upstream=http://127.0.0.1:8080/
@@ -424,7 +434,11 @@ spec:
                 runAsNonRoot: true
               serviceAccountName: notebook-validator-controller-manager
               terminationGracePeriodSeconds: 10
-              volumes: []
+              volumes:
+              - name: cert
+                secret:
+                  defaultMode: 420
+                  secretName: webhook-server-cert
       permissions:
       - rules:
         - apiGroups:
@@ -486,11 +500,52 @@ spec:
   - name: Architecture Decision Records
     url: https://github.com/tosin2013/jupyter-notebook-validator-operator/tree/main/docs/adrs
   maintainers:
-  - email: takinosh@redhat.com
+  - email: tosin.akinosho@gmail.com
     name: Tosin Akinosho
   maturity: alpha
   minKubeVersion: 1.28.0
   provider:
-    name: Decision Crafters
-    url: https://www.decisioncrafters.com/
-  version: 1.0.2
+    name: Tosin Akinosho
+    url: https://github.com/tosin2013
+  version: 1.0.9
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: notebook-validator-controller-manager
+    failurePolicy: Fail
+    generateName: mnotebookvalidationjob.kb.io
+    rules:
+    - apiGroups:
+      - mlops.mlops.dev
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - notebookvalidationjobs
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-mlops-mlops-dev-v1alpha1-notebookvalidationjob
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: notebook-validator-controller-manager
+    failurePolicy: Fail
+    generateName: vnotebookvalidationjob.kb.io
+    rules:
+    - apiGroups:
+      - mlops.mlops.dev
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - notebookvalidationjobs
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-mlops-mlops-dev-v1alpha1-notebookvalidationjob
