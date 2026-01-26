@@ -509,13 +509,13 @@ spec:
   - name: Architecture Decision Records
     url: https://github.com/tosin2013/jupyter-notebook-validator-operator/tree/main/docs/adrs
   maintainers:
-  - email: tosin.akinosho@gmail.com
+  - email: takinosh@redhat.com
     name: Tosin Akinosho
   maturity: alpha
   minKubeVersion: 1.28.0
   provider:
-    name: Tosin Akinosho
-    url: https://github.com/tosin2013
+    name: Decision Crafters
+    url: https://www.decisioncrafters.com/
   replaces: jupyter-notebook-validator-operator.v1.0.4
   version: 1.0.5
   webhookdefinitions:
